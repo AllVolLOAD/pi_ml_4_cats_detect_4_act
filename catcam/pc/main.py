@@ -101,6 +101,38 @@ def start_sync_thread(config: dict, config_path: str, base_dir: str, stop_event:
     return t
 
 
+def start_pi_service(config: dict, base_dir: str) -> bool:
+    """Запуск сервиса на Raspberry Pi через SSH"""
+    pi_service_cfg = config.get("pi_service", {})
+    if not pi_service_cfg.get("enabled", False):
+        return False
+    
+    script_path = pi_service_cfg.get("script_path", "scripts/start_pi_service.ps1")
+    script_path = _resolve_path(base_dir, script_path)
+    if not os.path.exists(script_path):
+        print(f"[PiService] Script not found: {script_path}")
+        return False
+    
+    pi_host = pi_service_cfg.get("pi_host", "mlprojectcat@192.168.1.103")
+    service_name = pi_service_cfg.get("service_name", "cam-stream-record.service")
+    
+    cmd = ["powershell", "-ExecutionPolicy", "Bypass", "-File", script_path,
+           "-PiHost", pi_host, "-ServiceName", service_name]
+    
+    try:
+        print(f"[PiService] Запуск сервиса {service_name} на малине...")
+        result = subprocess.run(cmd, check=False, capture_output=True, text=True)
+        if result.returncode == 0:
+            print("[PiService] Сервис на малине запущен успешно")
+            return True
+        else:
+            print(f"[PiService] Ошибка запуска сервиса: {result.stderr}")
+            return False
+    except Exception as e:
+        print(f"[PiService] Исключение при запуске сервиса: {e}")
+        return False
+
+
 
 
 class ReviewClipper:
@@ -765,6 +797,9 @@ def main():
     with open(args.config, 'r') as f:
         config = yaml.safe_load(f)
 
+    # Запуск сервиса на малине (если включено в конфиге)
+    start_pi_service(config, base_dir)
+    
     web_server = start_web_review_server(config, base_dir)
     sync_stop = threading.Event()
     sync_thread = start_sync_thread(config, args.config, base_dir, sync_stop)
