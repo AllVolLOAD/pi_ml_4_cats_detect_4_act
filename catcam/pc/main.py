@@ -20,6 +20,7 @@ from ai_detector import AIDetector
 from streamer import Streamer
 from roi import ROIEngine, ROIConfig, ZoneConfig, BBox, ROIResult
 from telemetry import TelemetryLogger, FPSMetrics
+from web_review import start_web_review_server
 import subprocess
 
 
@@ -698,6 +699,7 @@ def main():
     with open(args.config, 'r') as f:
         config = yaml.safe_load(f)
 
+    web_server = start_web_review_server(config, base_dir)
     sync_stop = threading.Event()
     sync_thread = start_sync_thread(config, args.config, base_dir, sync_stop)
     run_backfill(args.config, config, base_dir)
@@ -707,6 +709,8 @@ def main():
     # ????????? ???????? ??? ??????????? ??????????
     def signal_handler(sig, frame):
         sync_stop.set()
+        if web_server:
+            web_server.stop()
         if sync_thread:
             sync_thread.join(timeout=2.0)
         system.stop()
@@ -724,6 +728,8 @@ def main():
     sync_stop.set()
     if sync_thread:
         sync_thread.join(timeout=2.0)
+    if web_server:
+        web_server.stop()
 
 
 if __name__ == "__main__":
