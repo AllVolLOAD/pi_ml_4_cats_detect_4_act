@@ -105,6 +105,7 @@ def start_pi_service(config: dict, base_dir: str) -> bool:
     """Запуск сервиса на Raspberry Pi через SSH"""
     pi_service_cfg = config.get("pi_service", {})
     if not pi_service_cfg.get("enabled", False):
+        print("[PiService] Автозапуск сервиса на малине отключен в конфиге")
         return False
     
     script_path = pi_service_cfg.get("script_path", "scripts/start_pi_service.ps1")
@@ -120,14 +121,24 @@ def start_pi_service(config: dict, base_dir: str) -> bool:
            "-PiHost", pi_host, "-ServiceName", service_name]
     
     try:
-        print(f"[PiService] Запуск сервиса {service_name} на малине...")
-        result = subprocess.run(cmd, check=False, capture_output=True, text=True)
+        print(f"[PiService] Запуск сервиса {service_name} на малине ({pi_host})...")
+        result = subprocess.run(cmd, check=False, capture_output=True, text=True, timeout=30)
         if result.returncode == 0:
             print("[PiService] Сервис на малине запущен успешно")
+            # Даем время сервису запуститься
+            print("[PiService] Ожидание запуска сервиса (3 сек)...")
+            time.sleep(3)
             return True
         else:
-            print(f"[PiService] Ошибка запуска сервиса: {result.stderr}")
+            print(f"[PiService] Ошибка запуска сервиса (code={result.returncode})")
+            if result.stdout:
+                print(f"[PiService] stdout: {result.stdout}")
+            if result.stderr:
+                print(f"[PiService] stderr: {result.stderr}")
             return False
+    except subprocess.TimeoutExpired:
+        print("[PiService] Таймаут при запуске сервиса (30 сек)")
+        return False
     except Exception as e:
         print(f"[PiService] Исключение при запуске сервиса: {e}")
         return False
@@ -588,6 +599,10 @@ class CatCamSystem:
         receiver_timeout_sec = watchdog_config.get('receiver_timeout_sec', 5.0)
         check_interval_sec = watchdog_config.get('streamer_check_interval_sec', 2.0)
         auto_restart = watchdog_config.get('auto_restart', True)
+        
+        # Логируем загруженные настройки watchdog для диагностики
+        if watchdog_enabled:
+            print(f"[Watchdog] Конфигурация: timeout={receiver_timeout_sec}с, check_interval={check_interval_sec}с, auto_restart={auto_restart}")
         
         self.watchdog: Optional[Watchdog] = None
         if watchdog_enabled:
