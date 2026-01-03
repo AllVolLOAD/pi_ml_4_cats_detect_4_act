@@ -382,17 +382,20 @@ def _process_backfill_video(path: str, detector: AIDetector, roi_engine: Optiona
 def run_backfill(config_path: str, config: dict, base_dir: str):
     backfill_cfg = config.get("backfill", {})
     enabled = backfill_cfg.get("enabled", False)
+    print(f"[Backfill] Проверка: enabled={enabled}, type={type(enabled).__name__}")
     if not enabled:
-        print("[Backfill] Отключен в конфиге (enabled: false)")
+        print("[Backfill] Отключен в конфиге (enabled: false), пропуск")
         return
 
     input_dir = backfill_cfg.get("input_dir", "../data/raw_videos")
     input_dir = _resolve_path(base_dir, input_dir)
     if not os.path.exists(input_dir):
+        print(f"[Backfill] Директория не существует: {input_dir}")
         return
 
     files = sorted(glob.glob(os.path.join(input_dir, "*.mp4")))
     if not files:
+        print(f"[Backfill] Файлы не найдены в: {input_dir}")
         return
 
     print(f"[Backfill] Processing {len(files)} file(s)")
