@@ -197,83 +197,141 @@ class ReviewClipper:
         self._close_writer()
 
 
+def _is_video_complete(path: str, min_size_bytes: int = 1024) -> bool:
+    """Проверка, что видео файл завершен (не пишется)"""
+    if not os.path.exists(path):
+        return False
+    
+    # Проверяем минимальный размер
+    size1 = os.path.getsize(path)
+    if size1 < min_size_bytes:
+        return False
+    
+    # Ждем немного и проверяем, изменился ли размер
+    time.sleep(0.5)
+    if not os.path.exists(path):
+        return False
+    
+    size2 = os.path.getsize(path)
+    # Если размер не изменился, файл вероятно завершен
+    return size1 == size2
+
+
+def _safe_move_file(src: str, dst: str, max_retries: int = 3, retry_delay: float = 1.0) -> bool:
+    """Безопасное перемещение файла с повторными попытками"""
+    for attempt in range(max_retries):
+        try:
+            # Проверяем, что файл не заблокирован
+            # Пытаемся открыть в режиме append - если файл заблокирован, это не сработает
+            try:
+                with open(src, 'r+b') as f:
+                    pass
+            except (PermissionError, IOError):
+                if attempt < max_retries - 1:
+                    time.sleep(retry_delay)
+                    continue
+                return False
+            
+            # Пытаемся переместить
+            shutil.move(src, dst)
+            return True
+        except (PermissionError, IOError, OSError) as e:
+            if attempt < max_retries - 1:
+                print(f"[Backfill] Archive move retry {attempt + 1}/{max_retries}: {src}")
+                time.sleep(retry_delay)
+            else:
+                print(f"[Backfill] Archive move failed after {max_retries} attempts: {src} ({e})")
+                return False
+    return False
+
+
 def _process_backfill_video(path: str, detector: AIDetector, roi_engine: Optional[ROIEngine],
                             telemetry: TelemetryLogger, fps_metrics: FPSMetrics,
                             ai_interval: float, frame_skip: int,
                             clipper: Optional[ReviewClipper]):
+    # Проверяем, что файл завершен перед обработкой
+    if not _is_video_complete(path):
+        print(f"[Backfill] Skipping incomplete file: {path}")
+        return
+    
     cap = cv2.VideoCapture(path)
     if not cap.isOpened():
         print(f"[Backfill] Cannot open: {path}")
         return
 
-    fps = cap.get(cv2.CAP_PROP_FPS)
-    if clipper:
-        clipper.set_video(path, fps)
-
-    last_ai_ts = -1.0
-    frame_idx = 0
-
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            break
-
-        frame_idx += 1
-        video_ts = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0
-
+    try:
+        fps = cap.get(cv2.CAP_PROP_FPS)
         if clipper:
-            clipper.push_frame(frame, video_ts)
+            clipper.set_video(path, fps)
 
-        run_detection = True
-        if frame_skip > 1 and (frame_idx % frame_skip) != 0:
-            run_detection = False
+        last_ai_ts = -1.0
+        frame_idx = 0
 
-        if ai_interval > 0:
-            if last_ai_ts >= 0 and (video_ts - last_ai_ts) < ai_interval:
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
+
+            frame_idx += 1
+            video_ts = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0
+
+            if clipper:
+                clipper.push_frame(frame, video_ts)
+
+            run_detection = True
+            if frame_skip > 1 and (frame_idx % frame_skip) != 0:
                 run_detection = False
 
-        if not run_detection:
-            continue
+            if ai_interval > 0:
+                if last_ai_ts >= 0 and (video_ts - last_ai_ts) < ai_interval:
+                    run_detection = False
 
-        last_ai_ts = video_ts
-        detections = detector.detect_all(frame)
-        fps_metrics.update_infer()
+            if not run_detection:
+                continue
 
-        current_bbox = None
-        conf = None
-        roi_result = None
+            last_ai_ts = video_ts
+            detections = detector.detect_all(frame)
+            fps_metrics.update_infer()
 
-        if detections:
-            if len(detections) > 1:
-                candidates = []
-                for bbox_list, conf_val in detections:
-                    area = (bbox_list[2] - bbox_list[0]) * (bbox_list[3] - bbox_list[1])
-                    candidates.append((bbox_list, conf_val, area))
-                best = max(candidates, key=lambda x: x[2])
-                bbox_list, conf = best[0], best[1]
-            else:
-                bbox_list, conf = detections[0]
+            current_bbox = None
+            conf = None
+            roi_result = None
 
-            current_bbox = BBox(x1=bbox_list[0], y1=bbox_list[1], x2=bbox_list[2], y2=bbox_list[3])
+            if detections:
+                if len(detections) > 1:
+                    candidates = []
+                    for bbox_list, conf_val in detections:
+                        area = (bbox_list[2] - bbox_list[0]) * (bbox_list[3] - bbox_list[1])
+                        candidates.append((bbox_list, conf_val, area))
+                    best = max(candidates, key=lambda x: x[2])
+                    bbox_list, conf = best[0], best[1]
+                else:
+                    bbox_list, conf = detections[0]
 
-        if roi_engine:
-            roi_result = roi_engine.update(current_bbox, video_ts)
-            for ev in roi_result.events:
-                telemetry.log_event(ev, avg_conf=conf)
+                current_bbox = BBox(x1=bbox_list[0], y1=bbox_list[1], x2=bbox_list[2], y2=bbox_list[3])
 
-        telemetry.log_telemetry(
-            ts=video_ts,
-            bbox=current_bbox,
-            conf=conf,
-            roi_result=roi_result,
-            fps_metrics=fps_metrics
-        )
+            if roi_engine:
+                roi_result = roi_engine.update(current_bbox, video_ts)
+                for ev in roi_result.events:
+                    telemetry.log_event(ev, avg_conf=conf)
 
-        if clipper and current_bbox is not None:
-            pred_activity = roi_result.active_zone if roi_result else None
-            clipper.on_detection(current_bbox, conf, video_ts, pred_activity)
+            telemetry.log_telemetry(
+                ts=video_ts,
+                bbox=current_bbox,
+                conf=conf,
+                roi_result=roi_result,
+                fps_metrics=fps_metrics
+            )
 
-    cap.release()
+            if clipper and current_bbox is not None:
+                pred_activity = roi_result.active_zone if roi_result else None
+                clipper.on_detection(current_bbox, conf, video_ts, pred_activity)
+    finally:
+        # Гарантируем освобождение ресурсов
+        cap.release()
+        # Даем время системе освободить файл
+        time.sleep(0.1)
+    
     if clipper:
         clipper.close()
 
@@ -341,11 +399,10 @@ def run_backfill(config_path: str, config: dict, base_dir: str):
             except Exception as e:
                 print(f"[Backfill] Delete failed: {path} ({e})")
         elif archive_dir:
-            try:
-                dest = os.path.join(archive_dir, os.path.basename(path))
-                shutil.move(path, dest)
-            except Exception as e:
-                print(f"[Backfill] Archive move failed: {path} ({e})")
+            # Используем безопасное перемещение
+            dest = os.path.join(archive_dir, os.path.basename(path))
+            if not _safe_move_file(path, dest):
+                print(f"[Backfill] Archive move failed after retries: {path}")
 
     detector.close()
     telemetry.close()
@@ -363,6 +420,8 @@ class Watchdog:
         self.running = False
         self.thread: Optional[threading.Thread] = None
         self.last_frame_time: float = 0.0
+        self.receiver_restart_time: float = 0.0  # Время последнего перезапуска receiver
+        self.receiver_grace_period: float = 10.0  # Период ожидания после перезапуска (секунды)
     
     def update_frame_time(self):
         """Вызывать при получении каждого кадра"""
@@ -373,7 +432,11 @@ class Watchdog:
         if self.system.receiver is None:
             return True  # Receiver не инициализирован - не проверяем
         
+        # Если недавно перезапустили receiver, даем время на подключение
         current_time = time.time()
+        if current_time - self.receiver_restart_time < self.receiver_grace_period:
+            return True  # В grace period - не проверяем
+        
         time_since_last_frame = current_time - self.last_frame_time
         
         if time_since_last_frame > self.receiver_timeout_sec:
@@ -414,9 +477,12 @@ class Watchdog:
                             self.system.receiver = SRTReceiver(self.system.config_path)
                             if not self.system.receiver.start():
                                 print("[Watchdog] Ошибка перезапуска receiver")
+                            # Устанавливаем время перезапуска для grace period
+                            self.receiver_restart_time = time.time()
                         except Exception as e:
                             print(f"[Watchdog] Исключение при перезапуске receiver: {e}")
-                        self.last_frame_time = time.time()  # Сброс таймера
+                            self.receiver_restart_time = time.time()
+                        # НЕ сбрасываем last_frame_time сразу - даем время на подключение
                 
                 # Проверка streamer
                 if not self.check_streamer_health():
