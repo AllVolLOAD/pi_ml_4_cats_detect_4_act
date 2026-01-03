@@ -26,51 +26,71 @@ if (-not $sshKeyExists) {
 
 Write-Host ""
 Write-Host "📤 Копирование ключа на малину..." -ForegroundColor Yellow
-Write-Host "Введите пароль для $PiHost когда будет запрошен" -ForegroundColor Gray
 Write-Host ""
 
 # Windows не имеет ssh-copy-id, используем альтернативный метод
-$publicKey = Get-Content $sshKeyPath
-$tempScript = "$env:TEMP\ssh_copy_key.sh"
+$publicKey = Get-Content $sshKeyPath -Raw
+$publicKey = $publicKey.Trim()
 
-# Создаем временный скрипт для копирования ключа
-@"
-mkdir -p ~/.ssh
-chmod 700 ~/.ssh
-echo '$publicKey' >> ~/.ssh/authorized_keys
-chmod 600 ~/.ssh/authorized_keys
-echo 'SSH ключ успешно добавлен'
-"@ | Out-File -FilePath $tempScript -Encoding ASCII
+Write-Host "Используйте один из способов ниже:" -ForegroundColor Cyan
+Write-Host ""
 
-# Копируем скрипт на малину и выполняем
-Write-Host "Выполнение на малине (требуется пароль)..." -ForegroundColor Yellow
-scp $tempScript "${PiHost}:/tmp/ssh_copy_key.sh" 2>&1 | Out-Host
-ssh $PiHost "bash /tmp/ssh_copy_key.sh && rm /tmp/ssh_copy_key.sh" 2>&1 | Out-Host
+# Способ 1: Автоматический (требует ввода пароля)
+Write-Host "Способ 1: Автоматический (рекомендуется)" -ForegroundColor Yellow
+Write-Host "Выполните следующую команду и введите пароль:" -ForegroundColor White
+Write-Host ""
+Write-Host "  type `"$sshKeyPath`" | ssh $PiHost `"mkdir -p ~/.ssh && chmod 700 ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys`"" -ForegroundColor Gray
+Write-Host ""
 
-Remove-Item $tempScript -ErrorAction SilentlyContinue
+$choice = Read-Host "Выполнить автоматическое копирование сейчас? (y/n)"
 
-if ($LASTEXITCODE -eq 0) {
+if ($choice -eq 'y' -or $choice -eq 'Y') {
     Write-Host ""
-    Write-Host "✅ SSH ключ успешно скопирован на малину!" -ForegroundColor Green
+    Write-Host "Выполнение команды (введите пароль когда будет запрошен)..." -ForegroundColor Yellow
     Write-Host ""
-    Write-Host "Проверка подключения без пароля..." -ForegroundColor Cyan
-    $test = & ssh -o BatchMode=yes -o ConnectTimeout=5 $PiHost "echo 'OK'" 2>&1
-    if ($test -match "OK") {
-        Write-Host "✅ Подключение без пароля работает!" -ForegroundColor Green
+    
+    # Используем Get-Content и передаем через pipe
+    Get-Content $sshKeyPath | & ssh $PiHost "mkdir -p ~/.ssh && chmod 700 ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys"
+    
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host ""
+        Write-Host "✅ SSH ключ успешно скопирован на малину!" -ForegroundColor Green
+        Write-Host ""
+        Write-Host "Проверка подключения без пароля..." -ForegroundColor Cyan
+        $test = & ssh -o BatchMode=yes -o ConnectTimeout=5 $PiHost "echo 'OK'" 2>&1
+        if ($test -match "OK") {
+            Write-Host "✅ Подключение без пароля работает!" -ForegroundColor Green
+        } else {
+            Write-Host "⚠️  Подключение без пароля не работает, проверьте настройки" -ForegroundColor Yellow
+        }
     } else {
-        Write-Host "⚠️  Подключение без пароля не работает, проверьте настройки" -ForegroundColor Yellow
+        Write-Host ""
+        Write-Host "❌ Ошибка копирования ключа" -ForegroundColor Red
+        Write-Host ""
+        Write-Host "Используйте способ 2 (ручной) ниже" -ForegroundColor Yellow
     }
 } else {
     Write-Host ""
-    Write-Host "❌ Ошибка копирования ключа" -ForegroundColor Red
-    Write-Host ""
-    Write-Host "Альтернативный способ (выполните вручную):" -ForegroundColor Cyan
-    Write-Host "1. Скопируйте содержимое файла: $sshKeyPath" -ForegroundColor White
-    Write-Host "2. Подключитесь к малине: ssh $PiHost" -ForegroundColor White
-    Write-Host "3. Выполните:" -ForegroundColor White
-    Write-Host "   mkdir -p ~/.ssh" -ForegroundColor Gray
-    Write-Host "   chmod 700 ~/.ssh" -ForegroundColor Gray
-    Write-Host "   echo 'ВАШ_ПУБЛИЧНЫЙ_КЛЮЧ' >> ~/.ssh/authorized_keys" -ForegroundColor Gray
-    Write-Host "   chmod 600 ~/.ssh/authorized_keys" -ForegroundColor Gray
+    Write-Host "Пропущено автоматическое копирование" -ForegroundColor Gray
 }
+
+Write-Host ""
+Write-Host "Способ 2: Ручной (если автоматический не сработал)" -ForegroundColor Yellow
+Write-Host ""
+Write-Host "1. Скопируйте содержимое публичного ключа:" -ForegroundColor White
+Write-Host "   notepad `"$sshKeyPath`"" -ForegroundColor Gray
+Write-Host ""
+Write-Host "2. Подключитесь к малине:" -ForegroundColor White
+Write-Host "   ssh $PiHost" -ForegroundColor Gray
+Write-Host ""
+Write-Host "3. На малине выполните:" -ForegroundColor White
+Write-Host "   mkdir -p ~/.ssh" -ForegroundColor Gray
+Write-Host "   chmod 700 ~/.ssh" -ForegroundColor Gray
+Write-Host "   nano ~/.ssh/authorized_keys" -ForegroundColor Gray
+Write-Host "   # Вставьте содержимое публичного ключа и сохраните (Ctrl+X, Y, Enter)" -ForegroundColor Gray
+Write-Host "   chmod 600 ~/.ssh/authorized_keys" -ForegroundColor Gray
+Write-Host ""
+Write-Host "4. Проверьте подключение:" -ForegroundColor White
+Write-Host "   ssh $PiHost" -ForegroundColor Gray
+Write-Host "   # Должно подключиться без пароля" -ForegroundColor Gray
 
