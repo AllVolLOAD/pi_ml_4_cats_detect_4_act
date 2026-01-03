@@ -1,0 +1,16 @@
+version: "3.8"
+
+services:
+  catcam:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.gpu
+    container_name: catcam
+    restart: unless-stopped
+    volumes:
+      - ../catcam/pc/config.docker.yaml:/app/config.yaml:ro
+      - ../catcam/data:/data
+    device_requests:
+      - driver: nvidia
+        count: all
+        capabilities: [gpu]

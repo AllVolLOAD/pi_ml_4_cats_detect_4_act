@@ -1,0 +1,21 @@
+catcam export manifest
+timestamp: 20260103_135321
+include_data: True
+include_logs: True
+root: C:\NOSYS-WORK\rasberi pi4modB
+
+excluded_dirs:
+  - C:\NOSYS-WORK\rasberi pi4modB\.git
+  - C:\NOSYS-WORK\rasberi pi4modB\.cursor
+  - C:\NOSYS-WORK\rasberi pi4modB\__pycache__
+  - C:\NOSYS-WORK\rasberi pi4modB\.pytest_cache
+  - C:\NOSYS-WORK\rasberi pi4modB\node_modules
+  - C:\NOSYS-WORK\rasberi pi4modB\dist
+  - C:\NOSYS-WORK\rasberi pi4modB\build
+  - C:\NOSYS-WORK\rasberi pi4modB\_export
+  - C:\NOSYS-WORK\rasberi pi4modB\catcam\\pc\\__pycache__
+  - C:\NOSYS-WORK\rasberi pi4modB\catcam\\pc\\roi\\__pycache__
+
+excluded_files:
+  - Thumbs.db
+  - Desktop.ini

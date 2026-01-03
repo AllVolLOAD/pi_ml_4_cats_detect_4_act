@@ -1,0 +1,14 @@
+[Unit]
+Description=CatCam local recording (segmented)
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/catcam/pi
+ExecStart=/home/pi/catcam/pi/record_segments.sh /home/pi/catcam_record 60 1280 720 30 /dev/video0
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

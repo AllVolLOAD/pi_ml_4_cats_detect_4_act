@@ -1,0 +1,74 @@
+# Docker config for Windows + GPU (WSL2)
+storage:
+  base_path: "/data"
+  models_dir: "models"
+  datasets_dir: "datasets"
+  logs_dir: "logs"
+  checkpoints_dir: "checkpoints"
+
+srt:
+  url: "srt://192.168.1.103:9000?mode=caller&latency=200"
+  latency: 200
+  timeout: 5000
+
+twitch:
+  rtmp_url: "rtmp://live.twitch.tv/app/"
+  stream_key: "YOUR_STREAM_KEY_HERE"
+
+stream:
+  mode: "twitch"
+  width: 1280
+  height: 720
+  fps: 25
+  bitrate: "2500k"
+  preset: "veryfast"
+
+ai:
+  model_path: "yolov8n.pt"
+  input_width: 640
+  input_height: 360
+  confidence_threshold: 0.2
+  class_filter: ["cat"]
+  log_low_confidence: true
+
+udp:
+  port: 5555
+  host: "127.0.0.1"
+
+overlay:
+  box_color: [0, 255, 0]
+  box_thickness: 2
+  text_color: [255, 255, 255]
+  text_scale: 0.6
+  text_thickness: 2
+
+telemetry:
+  enabled: true
+  log_dir: "logs"
+  flush_interval: 5.0
+
+watchdog:
+  enabled: true
+  receiver_timeout_sec: 5.0
+  streamer_check_interval_sec: 2.0
+  auto_restart: true
+
+roi:
+  frame_size: [1280, 720]
+  intersection_threshold: 0.3
+  priority: ["eating", "drinking", "sleeping", "playing"]
+  hysteresis_ticks: 3
+  zones:
+    eating:
+      rect: [100, 500, 400, 700]
+      min_time_sec: 3
+    drinking:
+      rect: [450, 500, 650, 700]
+      min_time_sec: 2
+    playing:
+      rect: [0, 0, 1280, 450]
+      min_time_sec: 1
+    sleeping:
+      rect: [800, 450, 1280, 720]
+      min_time_sec: 60
+      max_movement_px: 15

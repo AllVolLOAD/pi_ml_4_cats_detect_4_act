@@ -1,0 +1,17 @@
+[Unit]
+Description=CatCam SRT Stream Service
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/catcam/pi
+ExecStart=/home/pi/catcam/pi/stream_cam.sh 0 9000
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+
