@@ -1,0 +1,14 @@
+[Unit]
+Description=CatCam stream + record (segmented)
+After=network.target
+
+[Service]
+Type=simple
+User=mlprojectcat
+WorkingDirectory=/home/mlprojectcat/catcam/pi
+ExecStart=/home/mlprojectcat/catcam/pi/stream_and_record.sh 0 9000 /home/mlprojectcat/catcam_record 60
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

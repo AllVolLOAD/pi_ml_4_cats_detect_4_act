@@ -208,10 +208,10 @@ _HTML_TEMPLATE = """
       <input type="hidden" name="clip_id" value="{{ clip_id }}">
       <div class="row">
         <div>Cat:</div>
-        <label><input type="radio" name="cat_id" value="1" required> 1</label>
-        <label><input type="radio" name="cat_id" value="2"> 2</label>
-        <label><input type="radio" name="cat_id" value="3"> 3</label>
-        <label><input type="radio" name="cat_id" value="4"> 4</label>
+        <label><input type="radio" name="cat_id" value="1" required> 1 - Kaktus</label>
+        <label><input type="radio" name="cat_id" value="2"> 2 - Plut</label>
+        <label><input type="radio" name="cat_id" value="3"> 3 - Whisky</label>
+        <label><input type="radio" name="cat_id" value="4"> 4 - Soda</label>
       </div>
       <div class="row">
         <div>Activity:</div>
