@@ -45,13 +45,19 @@ Write-Host "Готово!" -ForegroundColor Cyan
 if ($StartService) {
     Write-Host ""
     Write-Host "🚀 Запуск сервиса на малине..." -ForegroundColor Cyan
-    & ssh $PiHost "sudo systemctl restart cam-stream-record.service"
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host "✅ Сервис запущен" -ForegroundColor Green
-        Write-Host "Проверка статуса:" -ForegroundColor Gray
-        & ssh $PiHost "sudo systemctl status cam-stream-record.service --no-pager -l"
+    
+    $serviceScript = Join-Path $PSScriptRoot "start_pi_service.ps1"
+    if (Test-Path $serviceScript) {
+        & powershell -ExecutionPolicy Bypass -File $serviceScript -PiHost $PiHost -ServiceName "cam-stream-record.service"
     } else {
-        Write-Host "❌ Ошибка запуска сервиса" -ForegroundColor Red
+        Write-Host "⚠️  Скрипт start_pi_service.ps1 не найден, используем прямой SSH..." -ForegroundColor Yellow
+        & ssh -o BatchMode=yes $PiHost "sudo systemctl restart cam-stream-record.service" 2>&1 | Out-Null
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "✅ Сервис перезапущен" -ForegroundColor Green
+        } else {
+            Write-Host "❌ Ошибка запуска сервиса (возможно нужны SSH ключи)" -ForegroundColor Red
+            Write-Host "Запустите вручную: ssh $PiHost 'sudo systemctl start cam-stream-record.service'" -ForegroundColor Yellow
+        }
     }
 }
 
