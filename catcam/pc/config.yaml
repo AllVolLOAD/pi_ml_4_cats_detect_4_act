@@ -1,0 +1,132 @@
+# Конфигурация CatCam системы
+
+# Storage paths (пути к данным, моделям, логам)
+# Можно указать абсолютный путь к USB диску, например: "E:/catcam_data" или "/mnt/usb/catcam_data"
+storage:
+  base_path: "data"  # Базовый путь (относительно catcam/pc/ или абсолютный)
+  models_dir: "models"  # Подпапка для моделей (будет: base_path/models)
+  datasets_dir: "datasets"  # Подпапка для датасетов
+  logs_dir: "logs"  # Подпапка для логов (используется telemetry если не указан отдельно)
+  checkpoints_dir: "checkpoints"  # Подпапка для чекпоинтов обучения
+
+# SRT поток от Raspberry Pi
+srt:
+  url: "srt://192.168.1.103:9000?mode=caller&latency=200"
+  latency: 200  # миллисекунды
+  timeout: 5000
+
+# Twitch RTMP стрим
+twitch:
+  rtmp_url: "rtmp://live.twitch.tv/app/"
+  stream_key: "YOUR_STREAM_KEY_HERE"  # Замените на ваш stream key
+  
+# Параметры стрима
+stream:
+  mode: "preview"  # preview | twitch
+  width: 1280
+  height: 720
+  fps: 25
+  bitrate: "2500k"
+  preset: "veryfast"  # x264 preset
+
+# AI детектор
+ai:
+  model_path: "yolov8n.pt"  # Автозагрузка если нет локально
+  input_width: 640
+  input_height: 360
+  confidence_threshold: 0.2  # Снижено для детекции котов на заднем плане и множественных котов
+  class_filter: ["cat"]  # Классы для детекции
+  log_low_confidence: true  # Логировать детекции с низким confidence (< 0.4) и множественные детекции
+  
+# UDP протокол для bbox
+udp:
+  port: 5555
+  host: "127.0.0.1"
+
+# Оверлей
+overlay:
+  box_color: [0, 255, 0]  # BGR формат
+  box_thickness: 2
+  text_color: [255, 255, 255]
+  text_scale: 0.6
+  text_thickness: 2
+
+# Телеметрия
+telemetry:
+  enabled: true
+  log_dir: "logs"
+  flush_interval: 5.0  # секунды между flush в файл
+
+# Watchdog для мониторинга health компонентов
+watchdog:
+  enabled: true
+  receiver_timeout_sec: 10.0  # таймаут для отсутствия кадров от receiver (увеличено с 5.0)
+  streamer_check_interval_sec: 2.0  # интервал проверки streamer (секунды)
+  auto_restart: true  # автоматический перезапуск при проблемах
+
+# ROI конфигурация для определения активности (B1)
+roi:
+  frame_size: [1280, 720]
+  intersection_threshold: 0.3
+  priority: ["eating", "drinking", "sleeping", "playing"]
+  hysteresis_ticks: 3  # Зона меняется только после 3 тиков подряд
+  zones:
+    eating:
+      rect: [100, 500, 400, 700]      # x1, y1, x2, y2
+      min_time_sec: 3
+    drinking:
+      rect: [450, 500, 650, 700]
+      min_time_sec: 2
+    playing:
+      rect: [0, 0, 1280, 450]
+      min_time_sec: 1
+    sleeping:
+      rect: [800, 450, 1280, 720]
+      min_time_sec: 60
+      max_movement_px: 15
+
+
+
+# Sync from Pi (Windows)
+sync:
+  enabled: true
+  interval_sec: 120
+  script_path: "scripts/pull_from_pi.ps1"
+  pi_host: "mlprojectcat@192.168.1.103"
+  remote_dir: "/home/pi/catcam_record"
+  local_dir: "../data/raw_videos"
+
+# Backfill processing on startup
+backfill:
+  enabled: true
+  input_dir: "../data/raw_videos"
+  ai_interval_sec: 0
+  frame_skip: 1
+  delete_after: false
+  archive_dir: "../data/raw_videos/processed"
+
+
+# Review queue (clips for human labeling)
+review:
+  enabled: true
+  queue_dir: "../data/review_queue"
+  clip_sec: 8
+  pre_roll_sec: 1
+  min_gap_sec: 15
+  min_conf: 0.2
+  max_clips_per_run: 50
+
+
+# Web review UI (phone via Wi-Fi)
+review_web:
+  enabled: true
+  host: "0.0.0.0"
+  port: 10025
+  queue_dir: "../data/review_queue"
+
+# Auto-start Pi service when PC main.py starts
+pi_service:
+  enabled: true  # автоматически запускать сервис на малине при старте
+  pi_host: "mlprojectcat@192.168.1.103"
+  service_name: "cam-stream-record.service"
+  script_path: "scripts/start_pi_service.ps1"

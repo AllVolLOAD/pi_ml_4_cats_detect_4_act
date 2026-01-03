@@ -15,7 +15,7 @@ ENV/
 *.swo
 
 # Config (содержит чувствительные данные)
-pc/config.yaml
+# pc/config.yaml  # убрано из игнора по запросу
 
 # Models
 *.pt
