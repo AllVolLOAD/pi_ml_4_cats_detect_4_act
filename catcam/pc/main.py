@@ -814,8 +814,13 @@ def main():
     args = parser.parse_args()
     
     base_dir = os.path.dirname(os.path.abspath(__file__))
+    config_path = os.path.abspath(args.config)
+    print(f"[Main] Загрузка config из: {config_path}")
     with open(args.config, 'r') as f:
         config = yaml.safe_load(f)
+    
+    # Логируем настройки для диагностики
+    print(f"[Main] Config settings: sync.enabled={config.get('sync', {}).get('enabled')}, backfill.enabled={config.get('backfill', {}).get('enabled')}")
 
     # Запуск сервиса на малине (если включено в конфиге)
     start_pi_service(config, base_dir)
