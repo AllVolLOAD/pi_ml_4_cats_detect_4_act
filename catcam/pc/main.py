@@ -381,7 +381,8 @@ def _process_backfill_video(path: str, detector: AIDetector, roi_engine: Optiona
 
 def run_backfill(config_path: str, config: dict, base_dir: str):
     backfill_cfg = config.get("backfill", {})
-    if not backfill_cfg.get("enabled", False):
+    enabled = backfill_cfg.get("enabled", False)
+    if not enabled:
         return
 
     input_dir = backfill_cfg.get("input_dir", "../data/raw_videos")
