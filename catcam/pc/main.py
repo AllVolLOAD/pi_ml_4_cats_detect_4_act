@@ -820,6 +820,9 @@ def main():
     web_server = start_web_review_server(config, base_dir)
     sync_stop = threading.Event()
     sync_thread = start_sync_thread(config, args.config, base_dir, sync_stop)
+    
+    # Backfill на старте (если включен)
+    print("[Main] Проверка backfill на старте...")
     run_backfill(args.config, config, base_dir)
 
     system = CatCamSystem(config_path=args.config)
