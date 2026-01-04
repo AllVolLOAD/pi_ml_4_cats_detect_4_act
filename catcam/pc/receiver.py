@@ -160,11 +160,28 @@ class SRTReceiver:
                 self.ffmpeg = None
                 continue
             
+            if len(raw) == 0:
+                # Пустой read - возможно поток не идет
+                if self.ffmpeg.poll() is not None:
+                    # Процесс завершился
+                    err = self.ffmpeg.stderr.read().decode("utf-8", errors="ignore")
+                    if err:
+                        err_lines = err.split('\n')
+                        for line in err_lines[-3:]:
+                            if line.strip():
+                                print(f"[Receiver] FFmpeg ошибка: {line.strip()}")
+                    self.ffmpeg = None
+                    continue
+                # Процесс жив, но данных нет - возможно поток не идет
+                time.sleep(0.1)
+                continue
+            
             if len(raw) != self.frame_size:
                 # Неполный кадр - возможно поток прервался
                 if self.ffmpeg.poll() is not None:
                     self.ffmpeg = None
                     continue
+                # Неполный кадр, но процесс жив - пропускаем
                 continue
 
             # Декодируем кадр
@@ -188,7 +205,8 @@ class SRTReceiver:
             now = time.time()
             if now - last_fps_print >= 5:
                 fps = frame_count / (now - last_time)
-                print(f"[Receiver] FPS: {fps:.1f}")
+                queue_size = self.frame_queue.qsize()
+                print(f"[Receiver] FPS: {fps:.1f}, очередь: {queue_size}/{self.frame_queue.maxsize}")
                 frame_count = 0
                 last_time = now
                 last_fps_print = now
