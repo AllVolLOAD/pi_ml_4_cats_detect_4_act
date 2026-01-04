@@ -43,7 +43,8 @@ $tempScript | Out-File -FilePath $tempFile -Encoding ASCII -NoNewline
 try {
     # Копируем скрипт на малину
     Write-Host "`nКопирование скрипта на малину..." -ForegroundColor Gray
-    & scp $tempFile "${PiHost}:/tmp/ssh_setup.sh" 2>&1 | Out-Host
+    $scpResult = scp $tempFile "${PiHost}:/tmp/ssh_setup.sh" 2>&1
+    $scpResult | Out-Host
     
     if ($LASTEXITCODE -ne 0) {
         Write-Host "Ошибка копирования скрипта" -ForegroundColor Red
@@ -52,7 +53,8 @@ try {
     
     # Выполняем скрипт на малине
     Write-Host "Выполнение скрипта на малине..." -ForegroundColor Gray
-    & ssh $PiHost "bash /tmp/ssh_setup.sh && rm /tmp/ssh_setup.sh" 2>&1 | Out-Host
+    $sshResult = ssh $PiHost "bash /tmp/ssh_setup.sh && rm /tmp/ssh_setup.sh" 2>&1
+    $sshResult | Out-Host
     
     if ($LASTEXITCODE -ne 0) {
         Write-Host "Ошибка выполнения скрипта" -ForegroundColor Red
