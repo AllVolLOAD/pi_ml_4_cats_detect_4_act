@@ -98,7 +98,7 @@ sync:
 
 # Backfill processing on startup
 backfill:
-  enabled: true
+  enabled: false  # отключено на старте, выполняется в фоне через sync thread
   input_dir: "../data/raw_videos"
   ai_interval_sec: 0
   frame_skip: 1
