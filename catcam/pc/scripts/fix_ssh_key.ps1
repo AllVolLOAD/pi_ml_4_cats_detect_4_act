@@ -19,7 +19,7 @@ $publicKey = Get-Content $keyPath -Raw
 $publicKey = $publicKey.Trim()
 
 Write-Host "Копируем ключ на малину..." -ForegroundColor Yellow
-Write-Host "Введите пароль для $PiHost:" -ForegroundColor Yellow
+Write-Host "Введите пароль для ${PiHost}:" -ForegroundColor Yellow
 
 # Создаем временный скрипт на малине
 $tempScript = @"
